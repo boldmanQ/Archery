@@ -32,7 +32,9 @@ DB_TYPE_CHOICES = (
     ('pgsql', 'PgSQL'),
     ('oracle', 'Oracle'),
     ('inception', 'Inception'),
-    ('goinception', 'goInception'))
+    ('goinception', 'goInception'),
+    ('mongodb', 'MongoDB')
+    )
 
 
 class Instance(models.Model):
@@ -756,3 +758,20 @@ class SlowQueryHistory(models.Model):
         index_together = ('hostname_max', 'ts_min')
         verbose_name = u'慢日志明细'
         verbose_name_plural = u'慢日志明细'
+
+
+class SlowQueryHistoryMongoDB(models.Model):
+    DBName = models.CharField(max_length=64, null=False, verbose_name='数据库名')
+    DocsExamined = models.CharField(max_length=64, null=False, verbose_name='该操作执行时扫描的文档数')
+    QueryTimes = models.FloatField(null=False, verbose_name='该语句的执行时长，单位为毫秒')
+    AccountName = models.CharField(max_length=64, null=False, verbose_name='执行该操作的数据库用户名')
+    ExecutionStartTime = models.DateTimeField(verbose_name='操作执行的开始时间')
+    SQLText = models.CharField(max_length=1000, null=False, verbose_name='慢操作执行的语句')
+    HostAddress = models.CharField(max_length=64, verbose_name='连接数据库的主机地址')
+    KeysExamined = models.IntegerField(verbose_name='索引扫描行数')
+    ReturnRowCounts = models.IntegerField(verbose_name='返回行数')
+    
+    class Meta:
+        managed = True
+        db_table = 'slow_query_review_history_mongodb'
+        verbose_name = 'MongoDB慢日志明细'

@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-import simplejson as json
+import json
 import datetime
 from django.contrib.auth.decorators import permission_required
 from django.db.models import F, Sum, Value as V, Max
@@ -7,7 +7,7 @@ from django.db.models.functions import Concat
 from django.http import HttpResponse
 from sql.utils.resource_group import user_instances
 from common.utils.extend_json_encoder import ExtendJSONEncoder
-from .models import Instance, SlowQuery, SlowQueryHistory, AliyunRdsConfig
+from .models import Instance, SlowQuery, SlowQueryHistory, AliyunRdsConfig, SlowQueryHistoryMongoDB
 
 from .aliyun_rds import slowquery_review as aliyun_rds_slowquery_review, \
     slowquery_review_history as aliyun_rds_slowquery_review_history
@@ -32,7 +32,7 @@ def slowquery_review(request):
     instance_info = Instance.objects.get(instance_name=instance_name)
     if len(AliyunRdsConfig.objects.filter(instance=instance_info, is_enable=True)) > 0:
         # 调用阿里云慢日志接口
-        result = aliyun_rds_slowquery_review(request)
+        result = iasdiasdiasiidasdiiii(request)
     else:
         start_time = request.POST.get('StartTime')
         end_time = request.POST.get('EndTime')
@@ -182,3 +182,58 @@ def slowquery_review_history(request):
         # 返回查询结果
     return HttpResponse(json.dumps(result, cls=ExtendJSONEncoder, bigint_as_string=True),
                         content_type='application/json')
+
+
+
+def SaveSlowQueryLog(db_type, query_data, *args, **kwargs):
+    db_select = {
+        'mongodb': SlowQueryHistoryMongoDB,
+    }
+    model = db_select[db_type]
+    for slow_record in query_data:
+        model.objects.get_or_create(
+            DBName = slow_record['DBName'],
+            DocsExamined = slow_record['DocsExamined'],
+            QueryTimes = slow_record['QueryTimes'],
+            AccountName = slow_record['AccountName'],
+            ExecutionStartTime = slow_record['ExecutionStartTime'],
+            SQLText = slow_record['SQLText'],
+            HostAddress = slow_record['HostAddress'],
+            KeysExamined = slow_record['KeysExamined'],
+            ReturnRowCounts = slow_record['ReturnRowCounts'],
+        )
+
+# 获取慢日志明细
+def CollectSlowQueryLog(request):
+    database = request.GET.get('db')
+    instance = Instance.objects.filter(instance_name=database)[0]
+    # 判断是否为阿里云RDS实例
+    if hasattr(instance, 'aliyunrdsconfig'):
+        rds_dbinstanceid = instance.aliyunrdsconfig.rds_dbinstanceid
+        print(database, rds_dbinstanceid)
+        dbtype = instance.db_type
+        from common.utils.aliyun_sdk import Aliyun
+        AliyunAPI = Aliyun()
+        start_time, end_time = AliyunAPI.get_hour_date_times()
+        start_time = '2019-07-03T12:10Z'
+        end_time = '2019-07-05T12:10Z'
+        response = AliyunAPI.DescribeSlowLogRecords(rds_dbinstanceid, start_time, end_time, dbtype, PageNumber=1)
+        response = json.loads(response)
+        record_count = int(response['TotalRecordCount'])
+        SaveSlowQueryLog(dbtype, response['Items']['LogRecords'])
+        if record_count:
+            slow_query_record = response['Items']['LogRecords']
+            page_size = response['PageRecordCount']
+            total_page_num = int((record_count - 1) / page_size + 1)
+            if total_page_num == 1:
+                return HttpResponse(json.dumps(response))
+            for page_num in range(2, total_page_num+1):
+                response = AliyunAPI.DescribeSlowLogRecords(rds_dbinstanceid, start_time, end_time, dbtype, PageNumber=page_num)
+                response = json.loads(response)
+                SaveSlowQueryLog(dbtype, response['Items']['LogRecords'])
+                return HttpResponse(json.dumps(response))
+        else:
+            pass
+    else:
+        pass
+

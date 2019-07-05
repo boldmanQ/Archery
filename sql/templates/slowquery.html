@@ -175,9 +175,6 @@
                     type: "get",
                     url: "/group/user_all_instances/",
                     dataType: "json",
-                    data: {
-                        db_type: ['mysql']
-                    },
                     complete: function () {
                         //保留如果已选择instance_name，进入页面自动加载
                         sessionStorage.removeItem('SQLId');

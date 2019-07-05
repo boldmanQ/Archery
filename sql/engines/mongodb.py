@@ -1,9 +1,22 @@
-"""engine base库, 包含一个``EngineBase`` class和一个get_engine函数"""
-from sql.engines.models import ResultSet
+# -*- coding: UTF-8 -*-
+"""
+@author: boldmanQ
+@license: Apache Licence
+@file: mongodb.py
+@time: 2019/07/03
+"""
+import pymongo
+import logging
+import traceback
+
+from . import EngineBase
+from .models import ResultSet, ReviewResult, ReviewSet
 
 
-class EngineBase:
-    """enginebase 只定义了init函数和若干方法的名字, 具体实现用mysql.py pg.py等实现"""
+logger = logging.getLogger('default')
+
+
+class MongodbEngine(EngineBase):
 
     def __init__(self, instance=None):
         self.conn = None
@@ -17,34 +30,44 @@ class EngineBase:
             self.password = instance.raw_password
 
     def get_connection(self, db_name=None):
-        """返回一个conn实例"""
+        self.conn = pymongo.MongoClient(host=self.host, port=self.port, username=self.user, password=self.password)
+        if db_name:
+            self.conn = self.conn[db_name]
+        return self.conn
 
     @property
     def name(self):
         """返回engine名称"""
-        return 'base'
+        return 'MongoDB'
 
     @property
     def info(self):
         """返回引擎简介"""
-        return 'Base engine'
-
-    @property
-    def server_version(self):
-        """返回引擎服务器版本，返回对象为tuple (x,y,z)"""
-        return tuple()
-
-    def kill_connection(self, thread_id):
-        """终止数据库连接"""
+        return 'MongoDB engine'
 
     def get_all_databases(self):
         """获取数据库列表, 返回一个ResultSet，rows=list"""
-        return ResultSet()
+        result_set = ResultSet()
+        try:
+            conn = self.get_connection()
+            result_set.rows = conn.list_database_names()
+        except Exception as e:
+            logger.error(f"MongoDB获取databases列表报错，错误信息{traceback.format_exc()}")
+            result_set.error = str(e)
+        return result_set
 
     def get_all_tables(self, db_name):
         """获取table 列表, 返回一个ResultSet，rows=list"""
-        return ResultSet()
-
+        result_set = ResultSet()
+        try:
+            conn = self.get_connection()
+            db = conn[db_name]
+            tables = db.list_collection_names()
+            result_set.rows = tables
+        except Exception as e:
+            logger.error(f"MongoDB获取数据库{db_name} 'tables'报错，错误信息{traceback.format_exc()}") 
+        return result_set
+    '''
     def get_all_columns_by_tb(self, db_name, tb_name):
         """获取所有字段, 返回一个ResultSet，rows=list"""
         return ResultSet()
@@ -86,31 +109,12 @@ class EngineBase:
     def set_variable(self, variable_name, variable_value):
         """修改实例参数值，返回一个 ResultSet"""
         return ResultSet()
+    '''
 
+#    @property
+#    def server_version(self):
+#        """返回引擎服务器版本，返回对象为tuple (x,y,z)"""
+#        return tuple()
+#    def kill_connection(self, thread_id):
+#        """终止数据库连接"""
 
-def get_engine(instance=None):
-    """获取数据库操作engine"""
-    if instance.db_type == 'mysql':
-        from .mysql import MysqlEngine
-        return MysqlEngine(instance=instance)
-    elif instance.db_type == 'mssql':
-        from .mssql import MssqlEngine
-        return MssqlEngine(instance=instance)
-    elif instance.db_type == 'redis':
-        from .redis import RedisEngine
-        return RedisEngine(instance=instance)
-    elif instance.db_type == 'pgsql':
-        from .pgsql import PgSQLEngine
-        return PgSQLEngine(instance=instance)
-    elif instance.db_type == 'oracle':
-        from .oracle import OracleEngine
-        return OracleEngine(instance=instance)
-    elif instance.db_type == 'inception':
-        from .inception import InceptionEngine
-        return InceptionEngine(instance=instance)
-    elif instance.db_type == 'goinception':
-        from .goinception import GoInceptionEngine
-        return GoInceptionEngine(instance=instance)
-    elif instance.db_type == 'mongodb':
-        from .mongodb import MongodbEngine
-        return MongodbEngine(instance=instance)

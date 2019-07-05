@@ -1,10 +1,14 @@
 # -*- coding: UTF-8 -*-
 import datetime
 import traceback
+import pytz
 
 from aliyunsdkcore import client
 from aliyunsdkrds.request.v20140815 import DescribeSlowLogsRequest, DescribeSlowLogRecordsRequest, \
     RequestServiceOfCloudDBARequest
+from aliyunsdkdds.request.v20151201.DescribeSlowLogRecordsRequest \
+    import DescribeSlowLogRecordsRequest as DdsDescribeSlowLogRecordsRequest
+
 import simplejson as json
 from sql.models import AliyunAccessKey
 import logging
@@ -51,6 +55,15 @@ class Aliyun(object):
             format_time = str_time
         return format_time
 
+    def get_hour_date_times(self):
+        utc = pytz.UTC
+        aliyun_time_format = '%Y-%m-%dT%H:%MZ'
+        current_time = datetime.datetime.now(utc)
+        start_time = current_time - datetime.timedelta(hours=1)
+        search_start_time = start_time.strftime(aliyun_time_format)
+        search_end_time = current_time.strftime(aliyun_time_format)
+        return search_start_time, search_end_time
+
     def DescribeSlowLogs(self, DBInstanceId, StartTime, EndTime, **kwargs):
         '''获取实例慢日志列表
         DBName,SortKey、PageSize、PageNumber'''
@@ -61,10 +74,13 @@ class Aliyun(object):
         result = self.request_api(request, values)
         return result
 
-    def DescribeSlowLogRecords(self, DBInstanceId, StartTime, EndTime, **kwargs):
+    def DescribeSlowLogRecords(self, DBInstanceId, StartTime, EndTime, DBType, **kwargs):
         '''查看慢日志明细
         SQLId,DBName、PageSize、PageNumber'''
-        request = DescribeSlowLogRecordsRequest.DescribeSlowLogRecordsRequest()
+        if DBType == 'mongodb':
+            request = DdsDescribeSlowLogRecordsRequest()
+        else:
+            request = DescribeSlowLogRecordsRequest.DescribeSlowLogRecordsRequest()
         values = {"action_name": "DescribeSlowLogRecords", "DBInstanceId": DBInstanceId,
                   "StartTime": StartTime, "EndTime": EndTime}
         values = dict(values, **kwargs)

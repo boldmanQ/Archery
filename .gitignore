@@ -9,4 +9,6 @@ archery/settings.py.dev
 archery/settings_dev.py
 sql/migrations/
 venv
-archery/settings.py
+Pipfile
+.vscode/
+test_settings.py

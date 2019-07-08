@@ -106,12 +106,12 @@ urlpatterns = [
     path('binlog/binlog2sql/', binlog.binlog2sql),
     path('binlog/del_log/', binlog.del_binlog),
 
-    path('slowquery/review/', slowlog.slowquery_review),
-    path('slowquery/review_history/', slowlog.slowquery_review_history),
+    #path('slowquery/review/', slowlog.),
+    path('slowquery/review_history/', slowlog.SlowLogQueryRecordView.as_view()),
     path('slowquery/optimize_sqladvisor/', sql.sql_optimize.optimize_sqladvisor),
     path('slowquery/optimize_sqltuning/', sql.sql_optimize.optimize_sqltuning),
     path('slowquery/optimize_soar/', sql.sql_optimize.optimize_soar),
-    path('slowquery/collcetslowquery/', slowlog.CollectSlowQueryLog),
+    path('slowquery/collectslowquery/', slowlog.CollectSlowQueryLog.as_view()),
 
     path('db_diagnostic/process/', db_diagnostic.process),
     path('db_diagnostic/create_kill_session/', db_diagnostic.create_kill_session),

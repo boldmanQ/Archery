@@ -1,239 +1,121 @@
 # -*- coding: UTF-8 -*-
 import json
+import pytz
+import logging
 import datetime
+
+from common.utils.aliyun_sdk import Aliyun
+
+from django.core import serializers
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 from django.db.models import F, Sum, Value as V, Max
 from django.db.models.functions import Concat
 from django.http import HttpResponse
+from django.views import View
+from django.views.generic import ListView
 from sql.utils.resource_group import user_instances
 from common.utils.extend_json_encoder import ExtendJSONEncoder
-from .models import Instance, SlowQuery, SlowQueryHistory, AliyunRdsConfig, SlowQueryHistoryMongoDB
+from .models import Instance, SlowQuery, SlowQueryHistory, AliyunRdsConfig, SlowQueryHistoryMongoDB, SlowQueryHistoryPostgreSQL
 
 from .aliyun_rds import slowquery_review as aliyun_rds_slowquery_review, \
     slowquery_review_history as aliyun_rds_slowquery_review_history
 
-import logging
-
 logger = logging.getLogger('default')
 
 
-# 获取SQL慢日志统计
-@permission_required('sql.menu_slowquery', raise_exception=True)
-def slowquery_review(request):
-    instance_name = request.POST.get('instance_name')
-    # 服务端权限校验
-    try:
-        user_instances(request.user, db_type=['mysql']).get(instance_name=instance_name)
-    except Exception:
-        result = {'status': 1, 'msg': '你所在组未关联该实例', 'data': []}
-        return HttpResponse(json.dumps(result), content_type='application/json')
+# 获取慢日志明细
+class CollectSlowQueryLog(View):
 
-    # 判断是RDS还是其他实例
-    instance_info = Instance.objects.get(instance_name=instance_name)
-    if len(AliyunRdsConfig.objects.filter(instance=instance_info, is_enable=True)) > 0:
-        # 调用阿里云慢日志接口
-        result = iasdiasdiasiidasdiiii(request)
-    else:
-        start_time = request.POST.get('StartTime')
-        end_time = request.POST.get('EndTime')
-        db_name = request.POST.get('db_name')
-        limit = int(request.POST.get('limit'))
-        offset = int(request.POST.get('offset'))
-        limit = offset + limit
-
-        # 时间处理
-        end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1)
-        # DBName非必传
-        if db_name:
-            # 获取慢查数据
-            slowsql_obj = SlowQuery.objects.filter(
-                slowqueryhistory__hostname_max=(instance_info.host + ':' + str(instance_info.port)),
-                slowqueryhistory__db_max=db_name,
-                slowqueryhistory__ts_min__range=(start_time, end_time)
-            ).annotate(SQLText=F('fingerprint'), SQLId=F('checksum')).values('SQLText', 'SQLId').annotate(
-                CreateTime=Max('slowqueryhistory__ts_max'),
-                DBName=Max('slowqueryhistory__db_max'),  # 数据库
-                QueryTimeAvg=Sum('slowqueryhistory__query_time_sum') / Sum('slowqueryhistory__ts_cnt'),  # 平均执行时长
-                MySQLTotalExecutionCounts=Sum('slowqueryhistory__ts_cnt'),  # 执行总次数
-                MySQLTotalExecutionTimes=Sum('slowqueryhistory__query_time_sum'),  # 执行总时长
-                ParseTotalRowCounts=Sum('slowqueryhistory__rows_examined_sum'),  # 扫描总行数
-                ReturnTotalRowCounts=Sum('slowqueryhistory__rows_sent_sum'),  # 返回总行数
-            )
-        else:
-            # 获取慢查数据
-            slowsql_obj = SlowQuery.objects.filter(
-                slowqueryhistory__hostname_max=(instance_info.host + ':' + str(instance_info.port)),
-                slowqueryhistory__ts_min__range=(start_time, end_time),
-            ).annotate(SQLText=F('fingerprint'), SQLId=F('checksum')).values('SQLText', 'SQLId').annotate(
-                CreateTime=Max('slowqueryhistory__ts_max'),
-                DBName=Max('slowqueryhistory__db_max'),  # 数据库
-                QueryTimeAvg=Sum('slowqueryhistory__query_time_sum') / Sum('slowqueryhistory__ts_cnt'),  # 平均执行时长
-                MySQLTotalExecutionCounts=Sum('slowqueryhistory__ts_cnt'),  # 执行总次数
-                MySQLTotalExecutionTimes=Sum('slowqueryhistory__query_time_sum'),  # 执行总时长
-                ParseTotalRowCounts=Sum('slowqueryhistory__rows_examined_sum'),  # 扫描总行数
-                ReturnTotalRowCounts=Sum('slowqueryhistory__rows_sent_sum'),  # 返回总行数
-            )
-        slow_sql_count = slowsql_obj.count()
-        slow_sql_list = slowsql_obj.order_by('-MySQLTotalExecutionCounts')[offset:limit]  # 执行总次数倒序排列
-
-        # QuerySet 序列化
-        sql_slow_log = [SlowLog for SlowLog in slow_sql_list]
-        result = {"total": slow_sql_count, "rows": sql_slow_log}
-
-    # 返回查询结果
-    return HttpResponse(json.dumps(result, cls=ExtendJSONEncoder, bigint_as_string=True),
-                        content_type='application/json')
-
-
-# 获取SQL慢日志明细
-@permission_required('sql.menu_slowquery', raise_exception=True)
-def slowquery_review_history(request):
-    instance_name = request.POST.get('instance_name')
-    # 服务端权限校验
-    try:
-        user_instances(request.user, db_type=['mysql']).get(instance_name=instance_name)
-    except Exception:
-        result = {'status': 1, 'msg': '你所在组未关联该实例', 'data': []}
-        return HttpResponse(json.dumps(result), content_type='application/json')
-
-    # 判断是RDS还是其他实例
-    instance_info = Instance.objects.get(instance_name=instance_name)
-    if len(AliyunRdsConfig.objects.filter(instance=instance_info, is_enable=True)) > 0:
-        # 调用阿里云慢日志接口
-        result = aliyun_rds_slowquery_review_history(request)
-    else:
-        start_time = request.POST.get('StartTime')
-        end_time = request.POST.get('EndTime')
-        db_name = request.POST.get('db_name')
-        sql_id = request.POST.get('SQLId')
-        limit = int(request.POST.get('limit'))
-        offset = int(request.POST.get('offset'))
-
-        # 时间处理
-        end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1)
-        limit = offset + limit
-        # SQLId、DBName非必传
-        if sql_id:
-            # 获取慢查明细数据
-            slow_sql_record_obj = SlowQueryHistory.objects.filter(
-                hostname_max=(instance_info.host + ':' + str(instance_info.port)),
-                checksum=sql_id,
-                ts_min__range=(start_time, end_time)
-            ).annotate(ExecutionStartTime=F('ts_min'),  # 本次统计(每5分钟一次)该类型sql语句出现的最小时间
-                       DBName=F('db_max'),  # 数据库名
-                       HostAddress=Concat(V('\''), 'user_max', V('\''), V('@'), V('\''), 'client_max', V('\'')),  # 用户名
-                       SQLText=F('sample'),  # SQL语句
-                       TotalExecutionCounts=F('ts_cnt'),  # 本次统计该sql语句出现的次数
-                       QueryTimePct95=F('query_time_pct_95'),  # 本次统计该sql语句95%耗时
-                       QueryTimes=F('query_time_sum'),  # 本次统计该sql语句花费的总时间(秒)
-                       LockTimes=F('lock_time_sum'),  # 本次统计该sql语句锁定总时长(秒)
-                       ParseRowCounts=F('rows_examined_sum'),  # 本次统计该sql语句解析总行数
-                       ReturnRowCounts=F('rows_sent_sum')  # 本次统计该sql语句返回总行数
-                       )
-        else:
-            if db_name:
-                # 获取慢查明细数据
-                slow_sql_record_obj = SlowQueryHistory.objects.filter(
-                    hostname_max=(instance_info.host + ':' + str(instance_info.port)),
-                    db_max=db_name,
-                    ts_min__range=(start_time, end_time)
-                ).annotate(ExecutionStartTime=F('ts_min'),  # 本次统计(每5分钟一次)该类型sql语句出现的最小时间
-                           DBName=F('db_max'),  # 数据库名
-                           HostAddress=Concat(V('\''), 'user_max', V('\''), V('@'), V('\''), 'client_max', V('\'')),
-                           # 用户名
-                           SQLText=F('sample'),  # SQL语句
-                           TotalExecutionCounts=F('ts_cnt'),  # 本次统计该sql语句出现的次数
-                           QueryTimePct95=F('query_time_pct_95'),  # 本次统计该sql语句出现的次数
-                           QueryTimes=F('query_time_sum'),  # 本次统计该sql语句花费的总时间(秒)
-                           LockTimes=F('lock_time_sum'),  # 本次统计该sql语句锁定总时长(秒)
-                           ParseRowCounts=F('rows_examined_sum'),  # 本次统计该sql语句解析总行数
-                           ReturnRowCounts=F('rows_sent_sum')  # 本次统计该sql语句返回总行数
-                           )
+    def get(self, request):
+        database = request.GET.get('dbname')
+        instance = Instance.objects.filter(instance_name=database)[0]
+        # 判断是否为阿里云RDS实例
+        if hasattr(instance, 'aliyunrdsconfig'):
+            rds_dbinstanceid = instance.aliyunrdsconfig.rds_dbinstanceid
+            dbtype = instance.db_type
+            AliyunAPI = Aliyun()
+            start_time, end_time = AliyunAPI.get_hour_date_times()
+            response = AliyunAPI.DescribeSlowLogRecords(rds_dbinstanceid, start_time, end_time, dbtype, PageNumber=1)
+            response = json.loads(response)
+            record_count = int(response['TotalRecordCount'])
+            page_size = response['PageRecordCount']
+            if record_count == 0:
+                # 接口返回数据为空
+                return HttpResponse({'status': 'success', 'data': None})
+            elif record_count <= page_size:
+                # 接口返回仅一页数据
+                self.SaveSlowQueryLog(dbtype, response['Items'])
+                return HttpResponse(json.dumps(response))
             else:
-                # 获取慢查明细数据
-                slow_sql_record_obj = SlowQueryHistory.objects.filter(
-                    hostname_max=(instance_info.host + ':' + str(instance_info.port)),
-                    ts_min__range=(start_time, end_time)
-                ).annotate(ExecutionStartTime=F('ts_min'),  # 本次统计(每5分钟一次)该类型sql语句出现的最小时间
-                           DBName=F('db_max'),  # 数据库名
-                           HostAddress=Concat(V('\''), 'user_max', V('\''), V('@'), V('\''), 'client_max', V('\'')),
-                           # 用户名
-                           SQLText=F('sample'),  # SQL语句
-                           TotalExecutionCounts=F('ts_cnt'),  # 本次统计该sql语句出现的次数
-                           QueryTimePct95=F('query_time_pct_95'),  # 本次统计该sql语句95%耗时
-                           QueryTimes=F('query_time_sum'),  # 本次统计该sql语句花费的总时间(秒)
-                           LockTimes=F('lock_time_sum'),  # 本次统计该sql语句锁定总时长(秒)
-                           ParseRowCounts=F('rows_examined_sum'),  # 本次统计该sql语句解析总行数
-                           ReturnRowCounts=F('rows_sent_sum')  # 本次统计该sql语句返回总行数
-                           )
+                page_size = response['PageRecordCount']
+                total_page_num = int((record_count - 1) / page_size + 1)
+                for page_num in range(2, total_page_num + 1):
+                    response = AliyunAPI.DescribeSlowLogRecords(rds_dbinstanceid, start_time, end_time, dbtype, PageNumber=page_num)
+                    response = json.loads(response)
+                    self.SaveSlowQueryLog(dbtype, response['Items'])
+                    return HttpResponse(json.dumps(response))
+        else:
+            # 非阿里云实例
+            pass
 
-        slow_sql_record_count = slow_sql_record_obj.count()
-        slow_sql_record_list = slow_sql_record_obj[offset:limit].values('ExecutionStartTime', 'DBName', 'HostAddress',
-                                                                        'SQLText',
-                                                                        'TotalExecutionCounts', 'QueryTimePct95',
-                                                                        'QueryTimes', 'LockTimes', 'ParseRowCounts',
-                                                                        'ReturnRowCounts'
-                                                                        )
+    def SaveSlowQueryLog(self, db_type, query_data, *args, **kwargs):
 
-        # QuerySet 序列化
-        sql_slow_record = [SlowRecord for SlowRecord in slow_sql_record_list]
-        result = {"total": slow_sql_record_count, "rows": sql_slow_record}
+        if db_type == 'mongodb':
+            for slow_record in query_data['LogRecords']:
+                SlowQueryHistoryMongoDB.objects.get_or_create(
+                    DBName=slow_record['DBName'],
+                    DocsExamined=slow_record['DocsExamined'],
+                    QueryTimes=slow_record['QueryTimes'] / 1000,
+                    AccountName=slow_record['AccountName'],
+                    ExecutionStartTime=slow_record['ExecutionStartTime'],
+                    SQLText=slow_record['SQLText'],
+                    HostAddress=slow_record['HostAddress'],
+                    KeysExamined=slow_record['KeysExamined'],
+                    ReturnRowCounts=slow_record['ReturnRowCounts'],
+                )
+        elif db_type == 'pgsql':
+            for slow_record in query_data['SQLSlowRecord']:
+                SlowQueryHistoryPostgreSQL.objects.get_or_create(
+                    DBName=slow_record['DBName'],
+                    QueryTimes=slow_record['QueryTimes'],
+                    ExecutionStartTime=slow_record['ExecutionStartTime'],
+                    SQLText=slow_record['SQLText'],
+                    HostAddress=slow_record['HostAddress'],
+                    ReturnRowCounts=slow_record['ReturnRowCounts'],
+                    ParseRowCounts=slow_record['ParseRowCounts']
+                )
+
+
+class SlowLogQueryRecordView(ListView):
+    model = SlowQueryHistoryMongoDB
+
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        return super(SlowLogQueryRecordView, self).dispatch(request, *args, **kwargs)
+
+    def post(self, request):
+        qs = super().get_queryset()
+        start_time = request.POST.get('StartTime')
+        end_time = request.POST.get('EndTime')
+        db_name = request.POST.get('db_name')
+        limit = request.POST.get('limit')
+        offset = request.POST.get('offset')
+        utc = pytz.UTC
+        end_time = utc.localize(datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1))
+        start_time = utc.localize(datetime.datetime.strptime(start_time, '%Y-%m-%d'))
+        limit = offset + limit
+        if db_name:
+            qs = self.get_queryset().filter(
+                DBName=db_name,
+                ExecutionStartTime__range=(start_time, end_time)
+            )
+        slow_sql_record_count = qs.count()
+        sql_slow_record = serializers.serialize('json', qs)
+        #sql_slow_record = [ data['fields'] for data in sql_slow_record]
+        data = json.loads(sql_slow_record)
+        result = {"total": slow_sql_record_count, "rows": data}
 
         # 返回查询结果
-    return HttpResponse(json.dumps(result, cls=ExtendJSONEncoder, bigint_as_string=True),
-                        content_type='application/json')
-
-
-
-def SaveSlowQueryLog(db_type, query_data, *args, **kwargs):
-    db_select = {
-        'mongodb': SlowQueryHistoryMongoDB,
-    }
-    model = db_select[db_type]
-    for slow_record in query_data:
-        model.objects.get_or_create(
-            DBName = slow_record['DBName'],
-            DocsExamined = slow_record['DocsExamined'],
-            QueryTimes = slow_record['QueryTimes'],
-            AccountName = slow_record['AccountName'],
-            ExecutionStartTime = slow_record['ExecutionStartTime'],
-            SQLText = slow_record['SQLText'],
-            HostAddress = slow_record['HostAddress'],
-            KeysExamined = slow_record['KeysExamined'],
-            ReturnRowCounts = slow_record['ReturnRowCounts'],
-        )
-
-# 获取慢日志明细
-def CollectSlowQueryLog(request):
-    database = request.GET.get('db')
-    instance = Instance.objects.filter(instance_name=database)[0]
-    # 判断是否为阿里云RDS实例
-    if hasattr(instance, 'aliyunrdsconfig'):
-        rds_dbinstanceid = instance.aliyunrdsconfig.rds_dbinstanceid
-        print(database, rds_dbinstanceid)
-        dbtype = instance.db_type
-        from common.utils.aliyun_sdk import Aliyun
-        AliyunAPI = Aliyun()
-        start_time, end_time = AliyunAPI.get_hour_date_times()
-        start_time = '2019-07-03T12:10Z'
-        end_time = '2019-07-05T12:10Z'
-        response = AliyunAPI.DescribeSlowLogRecords(rds_dbinstanceid, start_time, end_time, dbtype, PageNumber=1)
-        response = json.loads(response)
-        record_count = int(response['TotalRecordCount'])
-        SaveSlowQueryLog(dbtype, response['Items']['LogRecords'])
-        if record_count:
-            slow_query_record = response['Items']['LogRecords']
-            page_size = response['PageRecordCount']
-            total_page_num = int((record_count - 1) / page_size + 1)
-            if total_page_num == 1:
-                return HttpResponse(json.dumps(response))
-            for page_num in range(2, total_page_num+1):
-                response = AliyunAPI.DescribeSlowLogRecords(rds_dbinstanceid, start_time, end_time, dbtype, PageNumber=page_num)
-                response = json.loads(response)
-                SaveSlowQueryLog(dbtype, response['Items']['LogRecords'])
-                return HttpResponse(json.dumps(response))
-        else:
-            pass
-    else:
-        pass
-
+        return HttpResponse(json.dumps(result), content_type='application/json')

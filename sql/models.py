@@ -1,4 +1,4 @@
-# -*- coding: UTF-8 -*- 
+# -*- coding: UTF-8 -*-
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from common.utils.aes_decryptor import Prpcrypt
@@ -34,7 +34,7 @@ DB_TYPE_CHOICES = (
     ('inception', 'Inception'),
     ('goinception', 'goInception'),
     ('mongodb', 'MongoDB')
-    )
+)
 
 
 class Instance(models.Model):
@@ -763,15 +763,36 @@ class SlowQueryHistory(models.Model):
 class SlowQueryHistoryMongoDB(models.Model):
     DBName = models.CharField(max_length=64, null=False, verbose_name='数据库名')
     DocsExamined = models.CharField(max_length=64, null=False, verbose_name='该操作执行时扫描的文档数')
-    QueryTimes = models.FloatField(null=False, verbose_name='该语句的执行时长，单位为毫秒')
+    QueryTimes = models.FloatField(null=False, verbose_name='该语句的执行时长，单位为秒')
     AccountName = models.CharField(max_length=64, null=False, verbose_name='执行该操作的数据库用户名')
     ExecutionStartTime = models.DateTimeField(verbose_name='操作执行的开始时间')
-    SQLText = models.CharField(max_length=1000, null=False, verbose_name='慢操作执行的语句')
+    SQLText = models.TextField(max_length=1000, null=False, verbose_name='慢操作执行的语句')
     HostAddress = models.CharField(max_length=64, verbose_name='连接数据库的主机地址')
     KeysExamined = models.IntegerField(verbose_name='索引扫描行数')
     ReturnRowCounts = models.IntegerField(verbose_name='返回行数')
-    
+
+    def __str__(self):
+        return self.DBName + ": " + self.SQLText
+
     class Meta:
         managed = True
         db_table = 'slow_query_review_history_mongodb'
         verbose_name = 'MongoDB慢日志明细'
+
+
+class SlowQueryHistoryPostgreSQL(models.Model):
+    DBName = models.CharField(max_length=64, null=False, verbose_name='数据库名')
+    QueryTimes = models.FloatField(null=False, verbose_name='该语句的执行时长，单位为秒')
+    ParseRowCounts = models.FloatField(null=False, verbose_name='解析行数')
+    ExecutionStartTime = models.DateTimeField(verbose_name='操作执行的开始时间')
+    SQLText = models.TextField(max_length=1000, null=False, verbose_name='慢操作执行的语句')
+    HostAddress = models.CharField(max_length=64, verbose_name='连接数据库的主机地址')
+    ReturnRowCounts = models.IntegerField(verbose_name='返回行数')
+
+    def __str__(self):
+        return self.DBName + ": " + self.SQLText
+
+    class Meta:
+        managed = True
+        db_table = 'slow_query_review_history_postgres'
+        verbose_name = 'PostgreSQL慢日志明细'

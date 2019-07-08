@@ -67,6 +67,7 @@ class MongodbEngine(EngineBase):
         except Exception as e:
             logger.error(f"MongoDB获取数据库{db_name} 'tables'报错，错误信息{traceback.format_exc()}") 
         return result_set
+
     '''
     def get_all_columns_by_tb(self, db_name, tb_name):
         """获取所有字段, 返回一个ResultSet，rows=list"""

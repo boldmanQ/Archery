@@ -37,6 +37,9 @@ class PgSQLEngine(EngineBase):
         return 'PgSQL engine'
 
     def get_all_databases(self):
+        print(
+            'GET DATABASE!!!!!!'
+        )
         """
         获取数据库列表
         :return:

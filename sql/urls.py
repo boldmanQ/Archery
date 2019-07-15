@@ -106,8 +106,8 @@ urlpatterns = [
     path('binlog/binlog2sql/', binlog.binlog2sql),
     path('binlog/del_log/', binlog.del_binlog),
 
-    #path('slowquery/review/', slowlog.),
-    path('slowquery/review_history/', slowlog.SlowLogQueryRecordView.as_view()),
+    path('slowquery/review/', slowlog.SlowQueryReportView.as_view()),
+    path('slowquery/review_history/', slowlog.SlowQueryDetailView.as_view()),
     path('slowquery/optimize_sqladvisor/', sql.sql_optimize.optimize_sqladvisor),
     path('slowquery/optimize_sqltuning/', sql.sql_optimize.optimize_sqltuning),
     path('slowquery/optimize_soar/', sql.sql_optimize.optimize_soar),

@@ -634,165 +634,42 @@ class SlowQuery(models.Model):
     SlowQuery
     """
     checksum = models.CharField(max_length=32, primary_key=True)
-    fingerprint = models.TextField()
     sample = models.TextField()
-    first_seen = models.DateTimeField(blank=True, null=True)
-    last_seen = models.DateTimeField(blank=True, null=True, db_index=True)
-    reviewed_by = models.CharField(max_length=20, blank=True, null=True)
-    reviewed_on = models.DateTimeField(blank=True, null=True)
-    comments = models.TextField(blank=True, null=True)
+    first_seen = models.DateTimeField(blank=True, null=True, auto_now_add=True)
+    last_seen = models.DateTimeField(blank=True, null=True, db_index=True, auto_now=True)
+    #fingerprint = models.TextField()
+    #reviewed_by = models.CharField(max_length=20, blank=True, null=True)
+    #reviewed_on = models.DateTimeField(blank=True, null=True)
+    #comments = models.TextField(blank=True, null=True)
+
 
     class Meta:
-        managed = False
-        db_table = 'mysql_slow_query_review'
+        managed = True
+        db_table = 'slow_query'
         verbose_name = u'慢日志统计'
         verbose_name_plural = u'慢日志统计'
 
 
-class SlowQueryHistory(models.Model):
-    """
-    SlowQueryHistory
-    """
-    hostname_max = models.CharField(max_length=64, null=False)
-    client_max = models.CharField(max_length=64, null=True)
-    user_max = models.CharField(max_length=64, null=False)
-    db_max = models.CharField(max_length=64, null=True, default=None)
-    bytes_max = models.CharField(max_length=64, null=True)
+class SlowQueryDetail(models.Model):
     checksum = models.ForeignKey(SlowQuery, db_constraint=False, to_field='checksum', db_column='checksum',
                                  on_delete=models.CASCADE)
-    sample = models.TextField()
-    ts_min = models.DateTimeField(db_index=True)
-    ts_max = models.DateTimeField()
-    ts_cnt = models.FloatField(blank=True, null=True)
-    query_time_sum = models.FloatField(db_column='Query_time_sum', blank=True, null=True)
-    query_time_min = models.FloatField(db_column='Query_time_min', blank=True, null=True)
-    query_time_max = models.FloatField(db_column='Query_time_max', blank=True, null=True)
-    query_time_pct_95 = models.FloatField(db_column='Query_time_pct_95', blank=True, null=True)
-    query_time_stddev = models.FloatField(db_column='Query_time_stddev', blank=True, null=True)
-    query_time_median = models.FloatField(db_column='Query_time_median', blank=True, null=True)
-    lock_time_sum = models.FloatField(db_column='Lock_time_sum', blank=True, null=True)
-    lock_time_min = models.FloatField(db_column='Lock_time_min', blank=True, null=True)
-    lock_time_max = models.FloatField(db_column='Lock_time_max', blank=True, null=True)
-    lock_time_pct_95 = models.FloatField(db_column='Lock_time_pct_95', blank=True, null=True)
-    lock_time_stddev = models.FloatField(db_column='Lock_time_stddev', blank=True, null=True)
-    lock_time_median = models.FloatField(db_column='Lock_time_median', blank=True, null=True)
-    rows_sent_sum = models.FloatField(db_column='Rows_sent_sum', blank=True, null=True)
-    rows_sent_min = models.FloatField(db_column='Rows_sent_min', blank=True, null=True)
-    rows_sent_max = models.FloatField(db_column='Rows_sent_max', blank=True, null=True)
-    rows_sent_pct_95 = models.FloatField(db_column='Rows_sent_pct_95', blank=True, null=True)
-    rows_sent_stddev = models.FloatField(db_column='Rows_sent_stddev', blank=True, null=True)
-    rows_sent_median = models.FloatField(db_column='Rows_sent_median', blank=True, null=True)
-    rows_examined_sum = models.FloatField(db_column='Rows_examined_sum', blank=True, null=True)
-    rows_examined_min = models.FloatField(db_column='Rows_examined_min', blank=True, null=True)
-    rows_examined_max = models.FloatField(db_column='Rows_examined_max', blank=True, null=True)
-    rows_examined_pct_95 = models.FloatField(db_column='Rows_examined_pct_95', blank=True, null=True)
-    rows_examined_stddev = models.FloatField(db_column='Rows_examined_stddev', blank=True, null=True)
-    rows_examined_median = models.FloatField(db_column='Rows_examined_median', blank=True, null=True)
-    rows_affected_sum = models.FloatField(db_column='Rows_affected_sum', blank=True, null=True)
-    rows_affected_min = models.FloatField(db_column='Rows_affected_min', blank=True, null=True)
-    rows_affected_max = models.FloatField(db_column='Rows_affected_max', blank=True, null=True)
-    rows_affected_pct_95 = models.FloatField(db_column='Rows_affected_pct_95', blank=True, null=True)
-    rows_affected_stddev = models.FloatField(db_column='Rows_affected_stddev', blank=True, null=True)
-    rows_affected_median = models.FloatField(db_column='Rows_affected_median', blank=True, null=True)
-    rows_read_sum = models.FloatField(db_column='Rows_read_sum', blank=True, null=True)
-    rows_read_min = models.FloatField(db_column='Rows_read_min', blank=True, null=True)
-    rows_read_max = models.FloatField(db_column='Rows_read_max', blank=True, null=True)
-    rows_read_pct_95 = models.FloatField(db_column='Rows_read_pct_95', blank=True, null=True)
-    rows_read_stddev = models.FloatField(db_column='Rows_read_stddev', blank=True, null=True)
-    rows_read_median = models.FloatField(db_column='Rows_read_median', blank=True, null=True)
-    merge_passes_sum = models.FloatField(db_column='Merge_passes_sum', blank=True, null=True)
-    merge_passes_min = models.FloatField(db_column='Merge_passes_min', blank=True, null=True)
-    merge_passes_max = models.FloatField(db_column='Merge_passes_max', blank=True, null=True)
-    merge_passes_pct_95 = models.FloatField(db_column='Merge_passes_pct_95', blank=True, null=True)
-    merge_passes_stddev = models.FloatField(db_column='Merge_passes_stddev', blank=True, null=True)
-    merge_passes_median = models.FloatField(db_column='Merge_passes_median', blank=True, null=True)
-    innodb_io_r_ops_min = models.FloatField(db_column='InnoDB_IO_r_ops_min', blank=True, null=True)
-    innodb_io_r_ops_max = models.FloatField(db_column='InnoDB_IO_r_ops_max', blank=True, null=True)
-    innodb_io_r_ops_pct_95 = models.FloatField(db_column='InnoDB_IO_r_ops_pct_95', blank=True, null=True)
-    innodb_io_r_ops_stddev = models.FloatField(db_column='InnoDB_IO_r_ops_stddev', blank=True, null=True)
-    innodb_io_r_ops_median = models.FloatField(db_column='InnoDB_IO_r_ops_median', blank=True, null=True)
-    innodb_io_r_bytes_min = models.FloatField(db_column='InnoDB_IO_r_bytes_min', blank=True, null=True)
-    innodb_io_r_bytes_max = models.FloatField(db_column='InnoDB_IO_r_bytes_max', blank=True, null=True)
-    innodb_io_r_bytes_pct_95 = models.FloatField(db_column='InnoDB_IO_r_bytes_pct_95', blank=True, null=True)
-    innodb_io_r_bytes_stddev = models.FloatField(db_column='InnoDB_IO_r_bytes_stddev', blank=True, null=True)
-    innodb_io_r_bytes_median = models.FloatField(db_column='InnoDB_IO_r_bytes_median', blank=True, null=True)
-    innodb_io_r_wait_min = models.FloatField(db_column='InnoDB_IO_r_wait_min', blank=True, null=True)
-    innodb_io_r_wait_max = models.FloatField(db_column='InnoDB_IO_r_wait_max', blank=True, null=True)
-    innodb_io_r_wait_pct_95 = models.FloatField(db_column='InnoDB_IO_r_wait_pct_95', blank=True, null=True)
-    innodb_io_r_wait_stddev = models.FloatField(db_column='InnoDB_IO_r_wait_stddev', blank=True, null=True)
-    innodb_io_r_wait_median = models.FloatField(db_column='InnoDB_IO_r_wait_median', blank=True, null=True)
-    innodb_rec_lock_wait_min = models.FloatField(db_column='InnoDB_rec_lock_wait_min', blank=True, null=True)
-    innodb_rec_lock_wait_max = models.FloatField(db_column='InnoDB_rec_lock_wait_max', blank=True, null=True)
-    innodb_rec_lock_wait_pct_95 = models.FloatField(db_column='InnoDB_rec_lock_wait_pct_95', blank=True, null=True)
-    innodb_rec_lock_wait_stddev = models.FloatField(db_column='InnoDB_rec_lock_wait_stddev', blank=True, null=True)
-    innodb_rec_lock_wait_median = models.FloatField(db_column='InnoDB_rec_lock_wait_median', blank=True, null=True)
-    innodb_queue_wait_min = models.FloatField(db_column='InnoDB_queue_wait_min', blank=True, null=True)
-    innodb_queue_wait_max = models.FloatField(db_column='InnoDB_queue_wait_max', blank=True, null=True)
-    innodb_queue_wait_pct_95 = models.FloatField(db_column='InnoDB_queue_wait_pct_95', blank=True, null=True)
-    innodb_queue_wait_stddev = models.FloatField(db_column='InnoDB_queue_wait_stddev', blank=True, null=True)
-    innodb_queue_wait_median = models.FloatField(db_column='InnoDB_queue_wait_median', blank=True, null=True)
-    innodb_pages_distinct_min = models.FloatField(db_column='InnoDB_pages_distinct_min', blank=True, null=True)
-    innodb_pages_distinct_max = models.FloatField(db_column='InnoDB_pages_distinct_max', blank=True, null=True)
-    innodb_pages_distinct_pct_95 = models.FloatField(db_column='InnoDB_pages_distinct_pct_95', blank=True, null=True)
-    innodb_pages_distinct_stddev = models.FloatField(db_column='InnoDB_pages_distinct_stddev', blank=True, null=True)
-    innodb_pages_distinct_median = models.FloatField(db_column='InnoDB_pages_distinct_median', blank=True, null=True)
-    qc_hit_cnt = models.FloatField(db_column='QC_Hit_cnt', blank=True, null=True)
-    qc_hit_sum = models.FloatField(db_column='QC_Hit_sum', blank=True, null=True)
-    full_scan_cnt = models.FloatField(db_column='Full_scan_cnt', blank=True, null=True)
-    full_scan_sum = models.FloatField(db_column='Full_scan_sum', blank=True, null=True)
-    full_join_cnt = models.FloatField(db_column='Full_join_cnt', blank=True, null=True)
-    full_join_sum = models.FloatField(db_column='Full_join_sum', blank=True, null=True)
-    tmp_table_cnt = models.FloatField(db_column='Tmp_table_cnt', blank=True, null=True)
-    tmp_table_sum = models.FloatField(db_column='Tmp_table_sum', blank=True, null=True)
-    tmp_table_on_disk_cnt = models.FloatField(db_column='Tmp_table_on_disk_cnt', blank=True, null=True)
-    tmp_table_on_disk_sum = models.FloatField(db_column='Tmp_table_on_disk_sum', blank=True, null=True)
-    filesort_cnt = models.FloatField(db_column='Filesort_cnt', blank=True, null=True)
-    filesort_sum = models.FloatField(db_column='Filesort_sum', blank=True, null=True)
-    filesort_on_disk_cnt = models.FloatField(db_column='Filesort_on_disk_cnt', blank=True, null=True)
-    filesort_on_disk_sum = models.FloatField(db_column='Filesort_on_disk_sum', blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'mysql_slow_query_review_history'
-        unique_together = ('checksum', 'ts_min', 'ts_max')
-        index_together = ('hostname_max', 'ts_min')
-        verbose_name = u'慢日志明细'
-        verbose_name_plural = u'慢日志明细'
-
-
-class SlowQueryHistoryMongoDB(models.Model):
+    InstanceName = models.CharField(max_length=64, null=False, verbose_name='实例名称')
     DBName = models.CharField(max_length=64, null=False, verbose_name='数据库名')
-    DocsExamined = models.CharField(max_length=64, null=False, verbose_name='该操作执行时扫描的文档数')
     QueryTimes = models.FloatField(null=False, verbose_name='该语句的执行时长，单位为秒')
-    AccountName = models.CharField(max_length=64, null=False, verbose_name='执行该操作的数据库用户名')
     ExecutionStartTime = models.DateTimeField(verbose_name='操作执行的开始时间')
     SQLText = models.TextField(max_length=1000, null=False, verbose_name='慢操作执行的语句')
     HostAddress = models.CharField(max_length=64, verbose_name='连接数据库的主机地址')
-    KeysExamined = models.IntegerField(verbose_name='索引扫描行数')
     ReturnRowCounts = models.IntegerField(verbose_name='返回行数')
+
+    ParseRowCounts = models.FloatField(blank=True, null=True, verbose_name='解析行数')
+    KeysExamined = models.IntegerField(blank=True, null=True, verbose_name='索引扫描行数')
+    AccountName = models.CharField(max_length=64, blank=True, null=True, verbose_name='执行该操作的数据库用户名')
+    DocsExamined = models.CharField(max_length=64, blank=True, null=True, verbose_name='该操作执行时扫描的文档数')
 
     def __str__(self):
         return self.DBName + ": " + self.SQLText
 
     class Meta:
         managed = True
-        db_table = 'slow_query_review_history_mongodb'
-        verbose_name = 'MongoDB慢日志明细'
-
-
-class SlowQueryHistoryPostgreSQL(models.Model):
-    DBName = models.CharField(max_length=64, null=False, verbose_name='数据库名')
-    QueryTimes = models.FloatField(null=False, verbose_name='该语句的执行时长，单位为秒')
-    ParseRowCounts = models.FloatField(null=False, verbose_name='解析行数')
-    ExecutionStartTime = models.DateTimeField(verbose_name='操作执行的开始时间')
-    SQLText = models.TextField(max_length=1000, null=False, verbose_name='慢操作执行的语句')
-    HostAddress = models.CharField(max_length=64, verbose_name='连接数据库的主机地址')
-    ReturnRowCounts = models.IntegerField(verbose_name='返回行数')
-
-    def __str__(self):
-        return self.DBName + ": " + self.SQLText
-
-    class Meta:
-        managed = True
-        db_table = 'slow_query_review_history_postgres'
-        verbose_name = 'PostgreSQL慢日志明细'
+        db_table = 'slow_query_detail'
+        verbose_name = '慢日志明细'

@@ -271,7 +271,7 @@
                     escape: true,
                     method: 'post',
                     contentType: "application/x-www-form-urlencoded",
-                    url: "/slowquery/review_history/",
+                    url: "/slowquery/review/",
                     striped: true,                      //是否显示行间隔色
                     cache: false,                       //是否使用缓存，默认为true，所以一般情况下需要设置一下这个属性（*）
                     pagination: true,                   //是否显示分页（*）
@@ -309,6 +309,7 @@
                     },
                     //格式化详情
                     detailFormatter: function (index, row) {
+                        console.log(row)
                         var html = [];
                         var sql = window.sqlFormatter.format(row.fields.SQLText);
                             //替换所有的换行符
@@ -321,7 +322,7 @@
                     },
                     columns: [{
                         title: '日志统计时间',
-                        field: 'CreateTime'
+                        field: 'last_seen'
                     }, {
                         title: '数据库名',
                         field: 'DBName'
@@ -339,6 +340,8 @@
                                 }
                             },
                         formatter: function (value, row, index) {
+
+                            console.log()
                             if (value.length > 100) {
                                 var sql = value.substr(0, 100) + '...';
                                 return sql;
@@ -348,13 +351,13 @@
                         }
                     }, {
                         title: '执行总次数',
-                        field: 'MySQLTotalExecutionCounts'
+                        field: 'QueryTimesMax'
                     }, {
                         title: '执行总时长',
-                        field: 'MySQLTotalExecutionTimes'
+                        field: 'QueryTimesTotal'
                     }, {
-                        title: '扫描总行数',
-                        field: 'ParseTotalRowCounts'
+                        title: '平均执行时间',
+                        field: 'QueryTimesAvg'
                     }, {
                         title: '返回总行数',
                         field: 'ReturnTotalRowCounts'

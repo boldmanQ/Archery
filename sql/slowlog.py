@@ -14,19 +14,15 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
-from django.db.models import F, Sum, Value as V, Max, Min, Count, CharField, Avg, IntegerField
-from django.db.models.functions import Cast
-from django.db.models.functions import Concat
+from django.db.models import F, Sum, Max, Min, Count, CharField, Avg, IntegerField
 from django.http import HttpResponse
 from django.views import View
 from django.views.generic import ListView
-from sql.utils.resource_group import user_instances
-from common.utils.extend_json_encoder import ExtendJSONEncoder
-from .models import Instance, AliyunRdsConfig,\
-    SlowQuery, SlowQueryDetail
+#from sql.utils.resource_group import user_instances
+from .models import Instance, SlowQuery, SlowQueryDetail
 
-from .aliyun_rds import slowquery_review as aliyun_rds_slowquery_review, \
-    slowquery_review_history as aliyun_rds_slowquery_review_history
+#from .aliyun_rds import slowquery_review as aliyun_rds_slowquery_review, \
+#    slowquery_review_history as aliyun_rds_slowquery_review_history
 
 logger = logging.getLogger('default')
 
@@ -70,14 +66,14 @@ class CollectSlowQueryLog(View):
 
     def sql_analysis(self, sqltext):
         if sqltext.lower().startswith('select'):
-            result = re.match('(select)(.*)(from)(.*)(where)(.*)', sqltext, re.DOTALL|re.I)
+            result = re.match('(select)(.*)(from)(.*)(where)(.*)', sqltext, re.DOTALL | re.I)
             if result:
                 result = result.groups()
                 sample_text = ' '.join(result[0:-2]) + ' {}'.format(result[-1].split(' ')[0])
             else:
                 sample_text = sqltext
         elif sqltext.lower().startswith('update'):
-            result = re.match('(update)(.*)(set)(.*)(where)(.*)', sqltext, re.DOTALL|re.I)
+            result = re.match('(update)(.*)(set)(.*)(where)(.*)', sqltext, re.DOTALL | re.I)
             if result:
                 result = result.groups()
                 sample_text = ' '.join(result[0:-2]) + ' {}'.format(result[-1].split(' ')[0])
@@ -88,7 +84,6 @@ class CollectSlowQueryLog(View):
         checksum = hashlib.md5(sample_text.encode()).hexdigest()
         print(checksum, sample_text)
         return checksum, sample_text
-
 
     def SaveSlowQueryLog(self, instance, query_data, *args, **kwargs):
 
@@ -102,7 +97,7 @@ class CollectSlowQueryLog(View):
             checksum, sample_text = self.sql_analysis(SQLText)
 
             DBName = data['DBName']
-            QueryTimes = data['QueryTimes'] if instance.db_type != 'mongodb' else data['QueryTimes']/1000
+            QueryTimes = data['QueryTimes'] if instance.db_type != 'mongodb' else data['QueryTimes'] / 1000
             ExecutionStartTime = data['ExecutionStartTime']
             HostAddress = data['HostAddress']
             ReturnRowCounts = data['ReturnRowCounts']
@@ -116,7 +111,6 @@ class CollectSlowQueryLog(View):
                 checksum=checksum,
                 sample=sample_text
             )[0]
-            print(report_object,11111)
 
             SlowQueryDetail.objects.get_or_create(
                 DBName=DBName,
@@ -174,12 +168,12 @@ class SlowQueryDetailView(ListView):
                     InstanceName=instance_name,
                     DBName=db_name,
                     ExecutionStartTime__range=(start_time, end_time)
-                )           
+                )
             else:
                 qs = self.get_queryset().filter(
                     InstanceName=instance_name,
                     ExecutionStartTime__range=(start_time, end_time)
-                )   
+                )
         slow_sql_record_count = qs.count()
         sql_slow_record = serializers.serialize('json', qs)
         #sql_slow_record = [ data['fields'] for data in sql_slow_record]
@@ -193,7 +187,7 @@ class SlowQueryDetailView(ListView):
 class SlowQueryReportView(ListView):
     model = SlowQuery
 
-    @method_decorator(csrf_exempt) 
+    @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         return super(SlowQueryReportView, self).dispatch(request, *args, **kwargs)
 
@@ -217,13 +211,13 @@ class SlowQueryReportView(ListView):
             ).values(
                 'SQLId'
             ).annotate(
-                DBName=Max('slowquerydetail__DBName', output_field=CharField()), QueryTimesTotal=Sum('slowquerydetail__QueryTimes',output_field=IntegerField()),
+                DBName=Max('slowquerydetail__DBName', output_field=CharField()), QueryTimesTotal=Sum('slowquerydetail__QueryTimes', output_field=IntegerField()),
                 QueryTimesMin=Min('slowquerydetail__QueryTimes', output_field=IntegerField()),
                 QueryTimesMax=Max('slowquerydetail__QueryTimes', output_field=IntegerField()),
-                QueryTimesCount = Count('slowquerydetail__QueryTimes'),
+                QueryTimesCount=Count('slowquerydetail__QueryTimes'),
                 QueryTimesAvg=Avg('slowquerydetail__QueryTimes'),
                 SQLText=Max('slowquerydetail__SQLText', output_field=CharField()),
-                QueryDateTime=Trunc('last_seen', 'second', tzinfo=pytz.timezone('Asia/Shanghai')) 
+                QueryDateTime=Trunc('last_seen', 'second', tzinfo=pytz.timezone('Asia/Shanghai'))
             )
         else:
             qs = self.get_queryset().filter(
@@ -233,13 +227,13 @@ class SlowQueryReportView(ListView):
             ).values(
                 'SQLId'
             ).annotate(
-                DBName=Max('slowquerydetail__DBName', output_field=CharField()), QueryTimesTotal=Sum('slowquerydetail__QueryTimes',output_field=IntegerField()),
+                DBName=Max('slowquerydetail__DBName', output_field=CharField()), QueryTimesTotal=Sum('slowquerydetail__QueryTimes', output_field=IntegerField()),
                 QueryTimesMin=Min('slowquerydetail__QueryTimes', output_field=IntegerField()),
                 QueryTimesMax=Max('slowquerydetail__QueryTimes', output_field=IntegerField()),
-                QueryTimesCount = Count('slowquerydetail__QueryTimes'),
+                QueryTimesCount=Count('slowquerydetail__QueryTimes'),
                 QueryTimesAvg=Avg('slowquerydetail__QueryTimes'),
                 SQLText=Max('slowquerydetail__SQLText', output_field=CharField()),
-                QueryDateTime=Trunc('last_seen', 'second', tzinfo=pytz.timezone('Asia/Shanghai')) 
+                QueryDateTime=Trunc('last_seen', 'second', tzinfo=pytz.timezone('Asia/Shanghai'))
             )
         slow_sql_record_count = qs.count()
         slow_sql_list = qs.order_by('-QueryTimesTotal', '-QueryTimesAvg')[offset:limit]
